@@ -1,0 +1,154 @@
+
+
+This is a quick set-up guide on how to install Icecast for Mp3 and Ogg streaming, sort of online radio. Tested on Debian Wheezy. Probably works on Ubuntu, etc. Icecast is a "server-like". It offers the HTTP URL/port through which end-users can play the media. However, Icecast itself does not serve the files. It must get its input from other "client-like" software. For example, Ices0 sends mp3 input to Icecast and then Icecast delivers to the end user. Similarly, Ices2 sends ogg input to Icecast and then Icecast delivers to the end user.
+Set up icecast
+
+Start by installing:
+
+sudo apt-get install icecast2
+
+It will ask for 3 passwords. Give them whatever you want. The stream password is something that will be later needed by Ices, so remember that. The domain name must be the one which you want your users to connect to. Same with port number. After installation, you must manually set the 3 passwords again in /etc/icecast2/icecast.xml. Similarly edit hostname and port in the same file. After that edit /etc/default/icecast2 to enable the daemon and finally:
+
+sudo service icecast2 restart
+
+Then open your web browser to http://hostname:port/. The administrator interface username is admin and password is whatever you set in icecast.xml.
+Ogg streaming with Ices2
+
+Start by installing:
+
+sudo apt-get install ices2
+
+Create some directory where you'll store your Oggs for streaming. Copy the sample config. (All commands run as root).
+
+mkdir /var/log/ices
+mkdir /home/user/music
+cd /home/user/music
+cp /usr/share/doc/ices2/examples/ices-playlist.xml .
+
+Now edit these important entries in ices-playlist.xml:
+
+<!-- The list of oggs will be from this playlist -->
+<param name="file">/home/user/music/playlist.txt</param>
+
+<!-- must be localhost (*not* your hostname!), else won't work! -->
+<hostname>localhost</hostname>
+
+<!-- This port must be same as what was entered in icecast.xml -->
+<port>1234</port>
+
+<!-- This is the stream password entered in icecast.xml -->
+<password>hackMeee</password>
+
+<!-- Can be anything other than / so that end users will
+  access the stream as http://hostname:port/play -->
+<mount>/play</mount>
+
+Then create a file playlist.txt with the full path to some .ogg files, one per line.
+
+Then run as root
+
+ices2 ices-playlist.xml
+
+and test using
+
+ mplayer http://hostname:port/play
+
+That's all
+Mp3 streaming with Ices0
+
+Mp3 streaming is disabled in Ices2 (Ices2 supports only ogg), so you've to manually download, compile & install Ices0.
+
+apt-get install libmp3lame-dev libxml2-dev libshout-dev libvorbis-dev
+
+cd /tmp/
+wget http://downloads.us.xiph.org/releases/ices/ices-0.4.tar.gz
+tar xf ices-0.4.tar.gz
+cd ices-0.4/
+./configure --prefix=/usr/local --with-pic --with-lame
+make
+make install
+
+mkdir /etc/ices
+cp /usr/local/etc/ices.conf.dist /etc/ices/ices.conf
+
+Once again, create a playlist.txt with each line containing full path to some mp3 files. Then adjust these variables in ices.conf:
+
+<File>/home/user/music/playlist.txt</File>
+<!-- must be localhost (*not* your hostname!), else won't work! -->
+<Hostname>localhost</Hostname>
+<!-- This port must be same as what was entered in icecast.xml -->
+<Port>1234</Port>
+<!-- stream encoder password as what was entered in icecast.xml -->
+<Password>hackMeee</Password>
+<!-- enuser accesses the stream as http://hostname:1234/listen -->
+<Mountpoint>/listen</Mountpoint>
+
+Now you can run the Ices0 as root:
+
+/usr/local/bin/ices -c /etc/ices/ices.conf -v
+
+and verify using
+
+mplayer http://hostname:port/listen
+
+Thats all.
+
+Optinally, if you want to re-encode your stream on-the-fly, you can edit ices.conf like below:
+
+<Reencode>1</Reencode>  <!-- change 0 to 1 -->
+<Bitrate>24</Bitrate> <!-- new bitrate in kbps -->
+<Samplerate>24000</Samplerate> <!-- new sample rate in Hz -->
+<Channels>2</Channels>   <!-- mono = 1, stereo = 2 -->
+
+Troubleshooting
+ices2
+
+The logs of ices2 are in /var/log/ices/ices.log. If you see the error:
+
+EROR stream/ices_instance_stream Failed initial connect to my.example.com:1234 (Couldn't connect: Connection timed out)
+
+then it means that you've entered my.example.com instead of localhost in ices-playlist.xml (see above). Also check that the port number is same in all 3 cases (first during apt-get, second in icecast.xml and third in ices-playlist.xml).
+
+Another error:
+
+EROR playlist-builtin/playlist_read Cannot play same file twice in a row, skipping
+
+It means that you've only one line in your playlist.txt. Add more entries there and the error goes away.
+ices0
+
+Logfile is in /tmp/ices.log.
+
+Logfile opened
+Could not find a valid playlist file.
+Ices Exiting...
+
+It means that you're not using /etc/ices/ices.conf. If the conf file is in some other location, then you are screwed. Always start ices as:
+
+/usr/local/bin/ices -c /etc/ices/ices.conf
+
+Altenative to ices: ezstream
+
+Why ezstream? It plays both mp3 and ogg without the need to manually compile ices0
+
+sudo apt-get install ezstream
+
+# without re-encoding
+cp /usr/share/doc/ezstream/examples/ezstream_mp3.xml  .
+
+# This has more options, if you want to re-encode, etc.
+# make sure you `apt-get install madplay lame`
+cp /usr/share/doc/ezstream/examples/ezstream_reencode_mp3.xml .
+
+It has the same parameters that can be tweaked as for ices. Some help is here and here.
+References
+
+    Setting up Icecast2 on Debian
+
+    Streaming MP3s with Icecast
+
+    ices0 ertor
+
+    Failed initial connect to localhost:8000
+
+    Icecast under Debian 4.0
+
